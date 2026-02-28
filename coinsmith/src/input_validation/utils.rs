@@ -127,6 +127,7 @@ fn validate_script(
         "p2pkh" => ScriptType::P2PKH,
         "p2sh" => ScriptType::P2SH,
         "p2tr" => ScriptType::P2TR,
+        "p2sh-p2wpkh" => ScriptType::P2SH_P2WPKH,
         _ => {
             return Err(ValidationError::new(
                 "UNSUPPORTED_SCRIPT_TYPE",
@@ -140,6 +141,7 @@ fn validate_script(
         ScriptType::P2PKH => script_pubkey.is_p2pkh(),
         ScriptType::P2SH => script_pubkey.is_p2sh(),
         ScriptType::P2TR => script_pubkey.is_p2tr(),
+        ScriptType::P2SH_P2WPKH => script_pubkey.is_p2sh(),
     };
 
     if !script_matches {

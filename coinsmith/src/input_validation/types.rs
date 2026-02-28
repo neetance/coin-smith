@@ -65,6 +65,19 @@ pub struct ValidatedUtxo {
     pub address: Option<String>,
 }
 
+impl Clone for ValidatedUtxo {
+    fn clone(&self) -> Self {
+        return Self {
+            txid: self.txid,
+            vout: self.vout,
+            value_sats: self.value_sats,
+            script_pubkey: self.script_pubkey.clone(),
+            script_type: self.script_type,
+            address: self.address.clone(),
+        };
+    }
+}
+
 pub struct ValidatedPayment {
     pub address: Option<String>,
     pub script_pubkey_hex: bitcoin::ScriptBuf,
@@ -113,4 +126,5 @@ pub enum ScriptType {
     P2PKH,
     P2SH,
     P2TR,
+    P2SH_P2WPKH,
 }

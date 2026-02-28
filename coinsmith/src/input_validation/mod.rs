@@ -5,7 +5,7 @@ pub fn validate_raw_fixture(raw_fixture: RawFixture) -> Result<ValidatedFixture,
     let network = raw_fixture.network;
     if network != "mainnet".to_string() {
         return Err(ValidationError::new(
-            "INVALID_FIXTURE",
+            "INVALID_NETWORK",
             "Network must be mainnet",
         ));
     }
