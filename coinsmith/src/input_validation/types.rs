@@ -1,5 +1,5 @@
 use bitcoin;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct RawFixture {
@@ -56,6 +56,7 @@ pub struct ValidatedFixture {
     pub policy: Option<ValidatedPolicy>,
 }
 
+#[derive(Serialize)]
 pub struct ValidatedUtxo {
     pub txid: bitcoin::Txid,
     pub vout: u32,
@@ -120,7 +121,7 @@ impl ValidationError {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub enum ScriptType {
     P2WPKH,
     P2PKH,

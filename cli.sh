@@ -62,7 +62,9 @@ OUTPUT_FILE="out/$FIXTURE_NAME"
 #   node builder.js "$FIXTURE" "$OUTPUT_FILE"
 #   cargo run -- "$FIXTURE" "$OUTPUT_FILE"
 
-ERROR_OUTPUT=$(error_json "NOT_IMPLEMENTED" "PSBT builder is not yet implemented")
-echo "$ERROR_OUTPUT" > "$OUTPUT_FILE"
-echo "Error: PSBT builder is not yet implemented" >&2
+if ./coinsmith/target/release/coinsmith "$FIXTURE" "$OUTPUT_FILE" 2>&1; then
+  exit 0
+else
+  exit 1
+fi
 exit 1

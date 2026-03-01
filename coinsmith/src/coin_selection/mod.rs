@@ -100,6 +100,7 @@ pub fn select_coins(
                 change.script_type,
                 fee_rate_sat_vb,
             );
+            print!("{}", vbytes);
 
             let required_without_change = total_payment
                 .checked_add(fee_without_change)
@@ -114,7 +115,36 @@ pub fn select_coins(
                 return Ok(CoinSelectionResult {
                     selected_coins,
                     total_input_value: total_input,
-                    total_fee: fee_without_change,
+                    total_fee: total_input - total_payment,
+                    change_included: false,
+                    change_value: 0,
+                    vbytes,
+                });
+            }
+        } else {
+            let (fee_without_change, vbytes) = estimate_fee(
+                &selected_coins,
+                payments,
+                false,
+                change.script_type,
+                fee_rate_sat_vb,
+            );
+            print!("{}", vbytes);
+
+            let required_without_change = total_payment
+                .checked_add(fee_without_change)
+                .ok_or_else(|| {
+                    CoinSelectionError::new(
+                        "AMOUNT_OVERFLOW",
+                        "Overflow computing required amount without change",
+                    )
+                })?;
+
+            if total_input >= required_without_change {
+                return Ok(CoinSelectionResult {
+                    selected_coins,
+                    total_input_value: total_input,
+                    total_fee: total_input - total_payment,
                     change_included: false,
                     change_value: 0,
                     vbytes,
