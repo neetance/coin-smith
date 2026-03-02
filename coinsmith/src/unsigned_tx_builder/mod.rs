@@ -60,6 +60,7 @@ impl TxBuilderError {
 }
 
 pub fn build_unsigned_tx(
+    strategy: String,
     payments: &[ValidatedPayment],
     coins: &CoinSelectionResult,
     change: &ValidatedChange,
@@ -203,12 +204,13 @@ pub fn build_unsigned_tx(
             is_change: true,
         });
     }
-    let fee_rate = coins.total_fee as f64 / (coins.vbytes as f64);
+    let mut fee_rate = coins.total_fee as f64 / (coins.vbytes as f64);
+    fee_rate = (fee_rate * 100.0).round() / 100.0;
 
     Ok(PsbtResult {
         ok: true,
         network: "mainnet".to_string(),
-        strategy: "greedy".to_string(),
+        strategy,
         selected_inputs: coins.selected_coins.clone(),
         outputs: outputs_report,
         change_index,

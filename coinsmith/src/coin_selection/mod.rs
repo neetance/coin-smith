@@ -1,4 +1,6 @@
-use crate::input_validation::types::{ValidatedChange, ValidatedPayment, ValidatedUtxo};
+use crate::input_validation::types::{
+    ScriptType, ValidatedChange, ValidatedPayment, ValidatedUtxo,
+};
 use fee_estimator::estimate_fee;
 
 pub struct CoinSelectionResult {
@@ -25,8 +27,79 @@ impl CoinSelectionError {
     }
 }
 
+pub trait CoinSelectionStrategy {
+    fn select(
+        &self,
+        utxos: &[ValidatedUtxo],
+        payments: &[ValidatedPayment],
+        change: &ValidatedChange,
+        fee_rate_sat_vb: f64,
+        max_inputs: u32,
+    ) -> Result<CoinSelectionResult, CoinSelectionError>;
+    fn name(&self) -> &'static str;
+}
+
+pub struct LargestFirst;
+pub struct SmallesFirst;
+
+pub enum SortType {
+    ASC,
+    DESC,
+}
+
+impl CoinSelectionStrategy for LargestFirst {
+    fn select(
+        &self,
+        utxos: &[ValidatedUtxo],
+        payments: &[ValidatedPayment],
+        change: &ValidatedChange,
+        fee_rate_sat_vb: f64,
+        max_inputs: u32,
+    ) -> Result<CoinSelectionResult, CoinSelectionError> {
+        let sorted_inputs = sort_utxos_by_input_value(utxos, SortType::DESC, fee_rate_sat_vb);
+        return select_coins(
+            utxos,
+            sorted_inputs,
+            payments,
+            change,
+            fee_rate_sat_vb,
+            max_inputs,
+        );
+    }
+
+    fn name(&self) -> &'static str {
+        return "largest_first";
+    }
+}
+
+impl CoinSelectionStrategy for SmallesFirst {
+    fn select(
+        &self,
+        utxos: &[ValidatedUtxo],
+        payments: &[ValidatedPayment],
+        change: &ValidatedChange,
+        fee_rate_sat_vb: f64,
+        max_inputs: u32,
+    ) -> Result<CoinSelectionResult, CoinSelectionError> {
+        let sorted_inputs = sort_utxos_by_input_value(utxos, SortType::ASC, fee_rate_sat_vb);
+        return select_coins(
+            utxos,
+            sorted_inputs,
+            payments,
+            change,
+            fee_rate_sat_vb,
+            max_inputs,
+        );
+    }
+
+    fn name(&self) -> &'static str {
+        return "smallest_first";
+    }
+}
+
 pub fn select_coins(
     utxos: &[ValidatedUtxo],
+    sorted_inputs: Vec<(usize, u64)>,
     payments: &[ValidatedPayment],
     change: &ValidatedChange,
     fee_rate_sat_vb: f64,
@@ -41,8 +114,6 @@ pub fn select_coins(
             .ok_or_else(|| CoinSelectionError::new("AMOUNT_OVERFLOW", "Payment sum overflowed"))?;
     }
 
-    let sorted_inputs = sort_utxos_by_input_value(utxos);
-
     let mut total_input: u64 = 0;
     let mut selected_coins: Vec<ValidatedUtxo> = Vec::new();
 
@@ -55,7 +126,7 @@ pub fn select_coins(
         }
 
         total_input = total_input
-            .checked_add(input.1)
+            .checked_add(utxos[input.0].value_sats)
             .ok_or_else(|| CoinSelectionError::new("AMOUNT_OVERFLOW", "Input sum overflowed"))?;
 
         selected_coins.push(utxos[input.0].clone());
@@ -100,7 +171,6 @@ pub fn select_coins(
                 change.script_type,
                 fee_rate_sat_vb,
             );
-            print!("{}", vbytes);
 
             let required_without_change = total_payment
                 .checked_add(fee_without_change)
@@ -129,7 +199,6 @@ pub fn select_coins(
                 change.script_type,
                 fee_rate_sat_vb,
             );
-            print!("{}", vbytes);
 
             let required_without_change = total_payment
                 .checked_add(fee_without_change)
@@ -159,17 +228,41 @@ pub fn select_coins(
     ))
 }
 
-pub fn sort_utxos_by_input_value(utxos: &[ValidatedUtxo]) -> Vec<(usize, u64)> {
+pub fn sort_utxos_by_input_value(
+    utxos: &[ValidatedUtxo],
+    sort_type: SortType,
+    fee_rate_sat_vb: f64,
+) -> Vec<(usize, u64)> {
     let mut sorted_values = Vec::new();
     for (idx, utxo) in utxos.iter().enumerate() {
-        sorted_values.push((idx, utxo.value_sats));
+        let value_sats = utxo.value_sats;
+        let input_vbytes = match utxo.script_type {
+            ScriptType::P2PKH => 148,
+            ScriptType::P2SH_P2WPKH => 90,
+            ScriptType::P2WPKH => 68,
+            ScriptType::P2TR => 63,
+            _ => 0,
+        };
+        let spending_cost = input_vbytes * (fee_rate_sat_vb as u64);
+        let effective_value = value_sats - spending_cost;
+
+        sorted_values.push((idx, effective_value));
     }
-    sort_desc(&mut sorted_values);
+
+    match sort_type {
+        SortType::ASC => sort_asc(&mut sorted_values),
+        SortType::DESC => sort_desc(&mut sorted_values),
+    };
     sorted_values
 }
 
 fn sort_desc(values: &mut [(usize, u64)]) -> &[(usize, u64)] {
     values.sort_by(|a, b| b.1.cmp(&a.1));
+    values
+}
+
+fn sort_asc(values: &mut [(usize, u64)]) -> &[(usize, u64)] {
+    values.sort_by(|a, b| a.1.cmp(&b.1));
     values
 }
 
