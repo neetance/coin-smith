@@ -228,7 +228,6 @@ pub fn build_unsigned_tx(
 fn script_type_str(script_type: ScriptType) -> String {
     match script_type {
         ScriptType::P2PKH => "p2pkh",
-        ScriptType::P2SH => "p2sh",
         ScriptType::P2SH_P2WPKH => "p2sh-p2wpkh",
         ScriptType::P2TR => "p2tr",
         ScriptType::P2WPKH => "p2wpkh",

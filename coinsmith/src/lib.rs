@@ -1,17 +1,18 @@
 pub mod coin_selection;
 pub mod input_validation;
 pub mod unsigned_tx_builder;
-use crate::coin_selection::{CoinSelectionStrategy, Knapsack};
+use crate::coin_selection::{
+    CoinSelectionStrategy, Knapsack, utxo_consolidation::consolidate_utxos,
+};
 use coin_selection::{BnB, CoinSelectionResult, LargestFirst, SmallesFirst};
 use input_validation::validate_raw_fixture;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::u64;
 use unsigned_tx_builder::{PsbtResult, build_unsigned_tx};
 
 pub fn run(fixture_raw: &str) -> Result<PsbtResult, (String, String)> {
     let raw_fixture = serde_json::from_str(fixture_raw)
         .map_err(|_| ("INVALID_FIXTURE".to_string(), "Malformed JSON".to_string()))?;
-
     let validated = validate_raw_fixture(raw_fixture).map_err(|e| (e.code, e.message))?;
 
     let strategies: Vec<Box<dyn CoinSelectionStrategy>> =
@@ -93,17 +94,36 @@ pub fn run(fixture_raw: &str) -> Result<PsbtResult, (String, String)> {
     }
 
     let coins = if strategy == Knapsack.name() {
-        &knapsack_result.unwrap()
+        knapsack_result.unwrap()
     } else if strategy == BnB.name() {
-        &bnb_result.unwrap()
+        bnb_result.unwrap()
     } else {
-        &coin_selections[index]
+        coin_selections[index].clone()
     };
+
+    let mut selected = HashMap::new();
+
+    for coin in &coins.selected_coins {
+        selected.insert(coin.txid, true);
+    }
+    let coins_after_utxo_consolidation = consolidate_utxos(
+        &validated.utxos,
+        &validated.payments,
+        coins,
+        validated.change.script_type,
+        validated.fee_rate_sat_vb,
+        validated
+            .policy
+            .as_ref()
+            .and_then(|p| p.max_inputs)
+            .unwrap_or(u32::MAX),
+    )
+    .map_err(|e| (e.code, e.message))?;
 
     let psbt_result = build_unsigned_tx(
         strategy,
         &validated.payments,
-        coins,
+        &coins_after_utxo_consolidation,
         &validated.change,
         validated.rbf,
         validated.locktime,

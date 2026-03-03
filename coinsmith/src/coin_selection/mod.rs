@@ -16,6 +16,19 @@ pub struct CoinSelectionResult {
     pub vbytes: usize,
 }
 
+impl Clone for CoinSelectionResult {
+    fn clone(&self) -> Self {
+        return Self {
+            selected_coins: self.selected_coins.clone(),
+            total_input_value: self.total_input_value,
+            total_fee: self.total_fee,
+            change_included: self.change_included,
+            change_value: self.change_value,
+            vbytes: self.vbytes,
+        };
+    }
+}
+
 #[derive(Debug)]
 pub struct CoinSelectionError {
     pub code: String,
@@ -156,7 +169,6 @@ pub fn sort_utxos_by_input_value(
             ScriptType::P2SH_P2WPKH => 90,
             ScriptType::P2WPKH => 68,
             ScriptType::P2TR => 58,
-            _ => 0,
         };
         let spending_cost = input_vbytes * (fee_rate_sat_vb as u64);
         let effective_value = value_sats - spending_cost;
@@ -183,3 +195,4 @@ fn sort_asc(values: &mut [(usize, u64)]) -> &[(usize, u64)] {
 
 pub mod fee_estimator;
 pub mod strategies;
+pub mod utxo_consolidation;

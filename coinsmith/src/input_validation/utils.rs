@@ -125,7 +125,6 @@ fn validate_script(
     let script_type = match script_type {
         "p2wpkh" => ScriptType::P2WPKH,
         "p2pkh" => ScriptType::P2PKH,
-        "p2sh" => ScriptType::P2SH,
         "p2tr" => ScriptType::P2TR,
         "p2sh-p2wpkh" => ScriptType::P2SH_P2WPKH,
         _ => {
@@ -139,7 +138,6 @@ fn validate_script(
     let script_matches = match script_type {
         ScriptType::P2WPKH => script_pubkey.is_p2wpkh(),
         ScriptType::P2PKH => script_pubkey.is_p2pkh(),
-        ScriptType::P2SH => script_pubkey.is_p2sh(),
         ScriptType::P2TR => script_pubkey.is_p2tr(),
         ScriptType::P2SH_P2WPKH => script_pubkey.is_p2sh(),
     };

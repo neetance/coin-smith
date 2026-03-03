@@ -1,5 +1,6 @@
 use bitcoin;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[derive(Debug, Deserialize)]
 pub struct RawFixture {
@@ -121,11 +122,14 @@ impl ValidationError {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ScriptType {
-    P2WPKH,
+    #[serde(rename = "p2pkh")]
     P2PKH,
-    P2SH,
+    #[serde(rename = "p2wpkh")]
+    P2WPKH,
+    #[serde(rename = "p2tr")]
     P2TR,
+    #[serde(rename = "p2sh-p2wpkh")]
     P2SH_P2WPKH,
 }
