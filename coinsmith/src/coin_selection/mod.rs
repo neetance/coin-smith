@@ -1,7 +1,11 @@
 use crate::input_validation::types::{
     ScriptType, ValidatedChange, ValidatedPayment, ValidatedUtxo,
 };
-use fee_estimator::estimate_fee;
+use std::u64;
+use strategies::{
+    branch_and_bound::select_coins_branch_and_bound, greedy::select_coins_greedy,
+    knapsack::select_coins_stochastic_knapsack,
+};
 
 pub struct CoinSelectionResult {
     pub selected_coins: Vec<ValidatedUtxo>,
@@ -41,6 +45,8 @@ pub trait CoinSelectionStrategy {
 
 pub struct LargestFirst;
 pub struct SmallesFirst;
+pub struct BnB;
+pub struct Knapsack;
 
 pub enum SortType {
     ASC,
@@ -57,7 +63,7 @@ impl CoinSelectionStrategy for LargestFirst {
         max_inputs: u32,
     ) -> Result<CoinSelectionResult, CoinSelectionError> {
         let sorted_inputs = sort_utxos_by_input_value(utxos, SortType::DESC, fee_rate_sat_vb);
-        return select_coins(
+        return select_coins_greedy(
             utxos,
             sorted_inputs,
             payments,
@@ -68,7 +74,7 @@ impl CoinSelectionStrategy for LargestFirst {
     }
 
     fn name(&self) -> &'static str {
-        return "largest_first";
+        return "greedy(largest_first)";
     }
 }
 
@@ -82,7 +88,7 @@ impl CoinSelectionStrategy for SmallesFirst {
         max_inputs: u32,
     ) -> Result<CoinSelectionResult, CoinSelectionError> {
         let sorted_inputs = sort_utxos_by_input_value(utxos, SortType::ASC, fee_rate_sat_vb);
-        return select_coins(
+        return select_coins_greedy(
             utxos,
             sorted_inputs,
             payments,
@@ -93,139 +99,48 @@ impl CoinSelectionStrategy for SmallesFirst {
     }
 
     fn name(&self) -> &'static str {
-        return "smallest_first";
+        return "greedy(smallest_first)";
     }
 }
 
-pub fn select_coins(
-    utxos: &[ValidatedUtxo],
-    sorted_inputs: Vec<(usize, u64)>,
-    payments: &[ValidatedPayment],
-    change: &ValidatedChange,
-    fee_rate_sat_vb: f64,
-    max_inputs: u32,
-) -> Result<CoinSelectionResult, CoinSelectionError> {
-    let dust_threshold: u64 = 546;
-
-    let mut total_payment: u64 = 0;
-    for payment in payments {
-        total_payment = total_payment
-            .checked_add(payment.value_sats)
-            .ok_or_else(|| CoinSelectionError::new("AMOUNT_OVERFLOW", "Payment sum overflowed"))?;
+impl CoinSelectionStrategy for BnB {
+    fn select(
+        &self,
+        utxos: &[ValidatedUtxo],
+        payments: &[ValidatedPayment],
+        change: &ValidatedChange,
+        fee_rate_sat_vb: f64,
+        max_inputs: u32,
+    ) -> Result<CoinSelectionResult, CoinSelectionError> {
+        return select_coins_branch_and_bound(utxos, payments, change, fee_rate_sat_vb, max_inputs);
     }
 
-    let mut total_input: u64 = 0;
-    let mut selected_coins: Vec<ValidatedUtxo> = Vec::new();
+    fn name(&self) -> &'static str {
+        return "branch_and_bound";
+    }
+}
 
-    for input in sorted_inputs {
-        if selected_coins.len() as u32 >= max_inputs {
-            return Err(CoinSelectionError::new(
-                "LIMIT_REACHED",
-                "Insufficient input value within limit",
-            ));
-        }
-
-        total_input = total_input
-            .checked_add(utxos[input.0].value_sats)
-            .ok_or_else(|| CoinSelectionError::new("AMOUNT_OVERFLOW", "Input sum overflowed"))?;
-
-        selected_coins.push(utxos[input.0].clone());
-
-        let (fee_with_change, vbytes) = estimate_fee(
-            &selected_coins,
+impl CoinSelectionStrategy for Knapsack {
+    fn select(
+        &self,
+        utxos: &[ValidatedUtxo],
+        payments: &[ValidatedPayment],
+        change: &ValidatedChange,
+        fee_rate_sat_vb: f64,
+        max_inputs: u32,
+    ) -> Result<CoinSelectionResult, CoinSelectionError> {
+        return select_coins_stochastic_knapsack(
+            utxos,
             payments,
-            true,
-            change.script_type,
+            change,
             fee_rate_sat_vb,
+            max_inputs,
         );
-
-        let required_with_change = total_payment.checked_add(fee_with_change).ok_or_else(|| {
-            CoinSelectionError::new(
-                "AMOUNT_OVERFLOW",
-                "Overflow computing required amount with change",
-            )
-        })?;
-
-        if total_input >= required_with_change {
-            let change_value = total_input
-                .checked_sub(required_with_change)
-                .ok_or_else(|| {
-                    CoinSelectionError::new("AMOUNT_UNDERFLOW", "Underflow computing change")
-                })?;
-
-            if change_value >= dust_threshold {
-                return Ok(CoinSelectionResult {
-                    selected_coins,
-                    total_input_value: total_input,
-                    total_fee: fee_with_change,
-                    change_included: true,
-                    change_value,
-                    vbytes,
-                });
-            }
-
-            let (fee_without_change, vbytes) = estimate_fee(
-                &selected_coins,
-                payments,
-                false,
-                change.script_type,
-                fee_rate_sat_vb,
-            );
-
-            let required_without_change = total_payment
-                .checked_add(fee_without_change)
-                .ok_or_else(|| {
-                    CoinSelectionError::new(
-                        "AMOUNT_OVERFLOW",
-                        "Overflow computing required amount without change",
-                    )
-                })?;
-
-            if total_input >= required_without_change {
-                return Ok(CoinSelectionResult {
-                    selected_coins,
-                    total_input_value: total_input,
-                    total_fee: total_input - total_payment,
-                    change_included: false,
-                    change_value: 0,
-                    vbytes,
-                });
-            }
-        } else {
-            let (fee_without_change, vbytes) = estimate_fee(
-                &selected_coins,
-                payments,
-                false,
-                change.script_type,
-                fee_rate_sat_vb,
-            );
-
-            let required_without_change = total_payment
-                .checked_add(fee_without_change)
-                .ok_or_else(|| {
-                    CoinSelectionError::new(
-                        "AMOUNT_OVERFLOW",
-                        "Overflow computing required amount without change",
-                    )
-                })?;
-
-            if total_input >= required_without_change {
-                return Ok(CoinSelectionResult {
-                    selected_coins,
-                    total_input_value: total_input,
-                    total_fee: total_input - total_payment,
-                    change_included: false,
-                    change_value: 0,
-                    vbytes,
-                });
-            }
-        }
     }
 
-    Err(CoinSelectionError::new(
-        "INSUFFICIENT_INPUTS",
-        "Total sum of inputs is insufficient to make payment",
-    ))
+    fn name(&self) -> &'static str {
+        return "stochastic_knapsack";
+    }
 }
 
 pub fn sort_utxos_by_input_value(
@@ -240,7 +155,7 @@ pub fn sort_utxos_by_input_value(
             ScriptType::P2PKH => 148,
             ScriptType::P2SH_P2WPKH => 90,
             ScriptType::P2WPKH => 68,
-            ScriptType::P2TR => 63,
+            ScriptType::P2TR => 58,
             _ => 0,
         };
         let spending_cost = input_vbytes * (fee_rate_sat_vb as u64);
@@ -267,3 +182,4 @@ fn sort_asc(values: &mut [(usize, u64)]) -> &[(usize, u64)] {
 }
 
 pub mod fee_estimator;
+pub mod strategies;

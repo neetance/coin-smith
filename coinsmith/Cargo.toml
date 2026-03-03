@@ -7,5 +7,6 @@ edition = "2024"
 base64 = "0.22.1"
 bitcoin = { version = "0.32.8", features = ["base64", "serde"] }
 hex = "0.4.3"
+rand = "0.8.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
