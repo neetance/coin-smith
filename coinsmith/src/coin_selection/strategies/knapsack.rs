@@ -4,6 +4,9 @@ use crate::input_validation::types::*;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
+const KNAPSACK_ITERATIONS: usize = 2000;
+const DUST_THRESHOLD: u64 = 546;
+
 pub fn select_coins_stochastic_knapsack(
     utxos: &[ValidatedUtxo],
     payments: &[ValidatedPayment],
@@ -11,9 +14,6 @@ pub fn select_coins_stochastic_knapsack(
     fee_rate_sat_vb: f64,
     max_inputs: u32,
 ) -> Result<CoinSelectionResult, CoinSelectionError> {
-    const KNAPSACK_ITERATIONS: usize = 2000;
-    const DUST_THRESHOLD: u64 = 546;
-
     let mut payment_sum: u64 = 0;
     for p in payments {
         payment_sum = payment_sum

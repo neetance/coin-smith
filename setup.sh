@@ -7,7 +7,8 @@ set -euo pipefail
 # Add your install commands below (e.g., npm install, pip install, cargo build).
 # This script is run once before grading to set up the environment.
 ###############################################################################
-
+cd coinsmith
+cargo build --release
 
 
 echo "Setup complete"
