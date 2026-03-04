@@ -1,27 +1,43 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
 
-###############################################################################
-# web.sh — Coin Smith: PSBT builder web UI and visualizer
-#
-# Starts the web server for the PSBT transaction builder.
-#
-# Behavior:
-#   - Reads PORT env var (default: 3000)
-#   - Prints the URL (e.g., http://127.0.0.1:3000) to stdout
-#   - Keeps running until terminated (CTRL+C / SIGTERM)
-#   - Must serve GET /api/health -> 200 { "ok": true }
-#
-# TODO: Replace the stub below with your web server start command.
-###############################################################################
+BACKEND_PORT=${PORT:-8080}
+FRONTEND_PORT=3001
 
-PORT="${PORT:-3000}"
+cd app
 
-# TODO: Start your web server here, for example:
-#   exec node server.js
-#   exec python -m http.server "$PORT"
-#   exec cargo run --release -- --port "$PORT"
+if [ ! -d "node_modules" ]; then
+  npm install
+fi
 
-echo "Error: Web visualizer is not yet implemented" >&2
-echo "Set up your web server to listen on port $PORT" >&2
-exit 1
+# ----------------------------
+# Start Backend
+# ----------------------------
+cd ../coinsmith
+PORT=$BACKEND_PORT cargo run --release -- server &
+BACKEND_PID=$!
+
+# Give backend time to start
+sleep 2
+
+# ----------------------------
+# Start Frontend
+# ----------------------------
+cd ../app
+npm run dev -- --port $FRONTEND_PORT &
+FRONTEND_PID=$!
+
+echo "http://127.0.0.1:$FRONTEND_PORT"
+
+# ----------------------------
+# Cleanup
+# ----------------------------
+cleanup() {
+  echo "Shutting down..."
+  kill $BACKEND_PID 2>/dev/null || true
+  kill $FRONTEND_PID 2>/dev/null || true
+  wait
+}
+
+trap cleanup SIGINT SIGTERM
+wait

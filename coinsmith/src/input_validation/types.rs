@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 // Raw fixture that we will be receiving as inputs. Will be checked if it is malformed before going to
 // coin selection
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RawFixture {
     pub network: String,
     pub utxos: Vec<RawUtxo>,
@@ -20,7 +20,7 @@ pub struct RawFixture {
 }
 
 // Raw version of the utxo received from raw fixture
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RawUtxo {
     pub txid: String,
     pub vout: u32,
@@ -31,7 +31,7 @@ pub struct RawUtxo {
 }
 
 // Raw payment from the raw fixture input
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RawPayment {
     pub address: Option<String>,
     pub script_pubkey_hex: String,
@@ -40,7 +40,7 @@ pub struct RawPayment {
 }
 
 // Raw change from the raw fixture
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RawChange {
     pub address: Option<String>,
     pub script_pubkey_hex: String,
@@ -48,7 +48,7 @@ pub struct RawChange {
 }
 
 // raw version of the policy from the raw fixture
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RawPolicy {
     pub max_inputs: Option<u32>,
 }
