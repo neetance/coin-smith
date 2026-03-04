@@ -1,6 +1,13 @@
+/*
+ This module deals with validating the raw fixtures that we get from the fixtures folder
+ For each input, it validates the fixture defensively and after the validation, returns a
+ clean and validated version of the fixture input
+*/
+
 use types::*;
 use utils::*;
 
+// This function takes in a raw fixture and returns a validated fixture struct in case of no error
 pub fn validate_raw_fixture(raw_fixture: RawFixture) -> Result<ValidatedFixture, ValidationError> {
     let network = raw_fixture.network;
     if network != "mainnet".to_string() {
@@ -13,10 +20,13 @@ pub fn validate_raw_fixture(raw_fixture: RawFixture) -> Result<ValidatedFixture,
     let utxos = raw_fixture.utxos;
     let payments = raw_fixture.payments;
     let change = raw_fixture.change;
+
+    // validating the different components of the fixture and getting their validated versions
     let validated_utxos = validate_utxos(&utxos)?;
     let validated_payments = validate_payments(&payments)?;
     let validated_change = validate_change(&change)?;
 
+    // checking for valid fee rate
     let validated_fee_rate = raw_fixture.fee_rate_sat_vb;
     if validated_fee_rate == 0.0 {
         return Err(ValidationError::new(
@@ -25,6 +35,7 @@ pub fn validate_raw_fixture(raw_fixture: RawFixture) -> Result<ValidatedFixture,
         ));
     }
 
+    // validating locktime, current_height and policy
     if let Some(locktime) = raw_fixture.locktime {
         if locktime == u32::MAX {
             return Err(ValidationError::new(
@@ -65,6 +76,7 @@ pub fn validate_raw_fixture(raw_fixture: RawFixture) -> Result<ValidatedFixture,
         }
     }
 
+    // returning the final validated fixture after performing all checks
     Ok(ValidatedFixture {
         network: network,
         utxos: validated_utxos,

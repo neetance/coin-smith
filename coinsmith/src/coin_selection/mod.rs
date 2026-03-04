@@ -1,3 +1,10 @@
+/*
+ This module contains the main coin selection logic, and defines the structs and traits which we will be using
+ throughout the coin selection process. It also contains the main function for each strategy, which will be called
+ from the main function in lib.rs. The actual implementation of each strategy is in the strategies submodule,
+ and we also have a fee estimator module for estimating the fees for a given selection of coins.
+*/
+
 use crate::input_validation::types::{
     ScriptType, ValidatedChange, ValidatedPayment, ValidatedUtxo,
 };
@@ -7,6 +14,9 @@ use strategies::{
     knapsack::select_coins_stochastic_knapsack,
 };
 
+// This struct represents the result of a coin selection process, which includes the selected coins, the total input value,
+// the total fee, whether change is included or not, the change value if change is included, and the estimated size of the
+// transaction in vbytes.
 pub struct CoinSelectionResult {
     pub selected_coins: Vec<ValidatedUtxo>,
     pub total_input_value: u64,
@@ -29,6 +39,7 @@ impl Clone for CoinSelectionResult {
     }
 }
 
+// This struct represents an error that can occur during the coin selection process, which includes an error code and a message.
 #[derive(Debug)]
 pub struct CoinSelectionError {
     pub code: String,
@@ -44,6 +55,10 @@ impl CoinSelectionError {
     }
 }
 
+// This trait defines the interface for a coin selection strategy, which includes a select function that returns the result of
+// the coin selection process, and a name function that returns the name of the strategy.
+// The different strategies will implement this trait, and we will call the select function from the main function in lib.rs
+// to perform the coin selection.
 pub trait CoinSelectionStrategy {
     fn select(
         &self,
@@ -56,6 +71,7 @@ pub trait CoinSelectionStrategy {
     fn name(&self) -> &'static str;
 }
 
+// Structs for the different strategies that will implement the CoinSelectionStrategy trait.
 pub struct LargestFirst;
 pub struct SmallesFirst;
 pub struct BnB;
@@ -66,6 +82,11 @@ pub enum SortType {
     DESC,
 }
 
+// Here we implement CoinSelectionStrategy for the LargestFirst and SmallestFirst strategies, which both use the same greedy
+// selection logic, but differ in the order in which they sort the UTXOs (largest first or smallest first). The select function
+// for both strategies calls the select_coins_greedy function, which contains the main logic for the greedy coin selection
+// algorithm. The name function returns the name of the strategy, which will be used in the main function in lib.rs to identify
+// which strategy produced which result.
 impl CoinSelectionStrategy for LargestFirst {
     fn select(
         &self,
@@ -116,6 +137,9 @@ impl CoinSelectionStrategy for SmallesFirst {
     }
 }
 
+// Here we implement the CoinSelectionStrategy for branch and bound, which calls the select_coins_branch_and_bound function
+// that contains the main logic for the branch and bound coin selection algorithm. The name function returns the name of the
+// strategy, which will be used in the main function in lib.rs to identify which strategy produced which result.
 impl CoinSelectionStrategy for BnB {
     fn select(
         &self,
@@ -133,6 +157,9 @@ impl CoinSelectionStrategy for BnB {
     }
 }
 
+// Here we implement the CoinSelectionStrategy for the knapsack strategy, which calls the select_coins_stochastic_knapsack
+// function that contains the main logic for the stochastic knapsack coin selection algorithm. The name function returns the
+// name of the strategy, which will be used in the main function in lib.rs to identify which strategy produced which result.
 impl CoinSelectionStrategy for Knapsack {
     fn select(
         &self,
@@ -156,6 +183,9 @@ impl CoinSelectionStrategy for Knapsack {
     }
 }
 
+// Helper function to sort the utxos by their effective value, which is the value of the utxo minus the estimated fee to spend it.
+// We use this function to sort the utxos in either ascending or descending order, depending on the strategy we are implementing
+// (largest first or smallest first).
 pub fn sort_utxos_by_input_value(
     utxos: &[ValidatedUtxo],
     sort_type: SortType,

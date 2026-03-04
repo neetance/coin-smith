@@ -9,6 +9,6 @@ set -euo pipefail
 ###############################################################################
 cd coinsmith
 cargo build --release
-
+cargo test
 
 echo "Setup complete"

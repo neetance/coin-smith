@@ -1,7 +1,11 @@
+// This module defines the various types which we will be using througout the project
+
 use bitcoin;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+// Raw fixture that we will be receiving as inputs. Will be checked if it is malformed before going to
+// coin selection
 #[derive(Debug, Deserialize)]
 pub struct RawFixture {
     pub network: String,
@@ -15,6 +19,7 @@ pub struct RawFixture {
     pub policy: Option<RawPolicy>,
 }
 
+// Raw version of the utxo received from raw fixture
 #[derive(Debug, Deserialize)]
 pub struct RawUtxo {
     pub txid: String,
@@ -25,6 +30,7 @@ pub struct RawUtxo {
     pub address: Option<String>,
 }
 
+// Raw payment from the raw fixture input
 #[derive(Debug, Deserialize)]
 pub struct RawPayment {
     pub address: Option<String>,
@@ -33,6 +39,7 @@ pub struct RawPayment {
     pub value_sats: u64,
 }
 
+// Raw change from the raw fixture
 #[derive(Debug, Deserialize)]
 pub struct RawChange {
     pub address: Option<String>,
@@ -40,11 +47,13 @@ pub struct RawChange {
     pub script_type: String,
 }
 
+// raw version of the policy from the raw fixture
 #[derive(Debug, Deserialize)]
 pub struct RawPolicy {
     pub max_inputs: Option<u32>,
 }
 
+// This is the structure for the validated fixture, which will be constructed after performing all malformity checks
 pub struct ValidatedFixture {
     pub network: String,
     pub utxos: Vec<ValidatedUtxo>,
@@ -57,6 +66,7 @@ pub struct ValidatedFixture {
     pub policy: Option<ValidatedPolicy>,
 }
 
+// Validated utxo, constructed after performning all checks on raw version of the utxos
 #[derive(Serialize)]
 pub struct ValidatedUtxo {
     pub txid: bitcoin::Txid,
@@ -80,6 +90,7 @@ impl Clone for ValidatedUtxo {
     }
 }
 
+// Validated version of the payment, after validating the raw payment version
 pub struct ValidatedPayment {
     pub address: Option<String>,
     pub script_pubkey_hex: bitcoin::ScriptBuf,
@@ -87,12 +98,14 @@ pub struct ValidatedPayment {
     pub value_sats: u64,
 }
 
+// validated version of the raw change struct
 pub struct ValidatedChange {
     pub address: Option<String>,
     pub script_pubkey_hex: bitcoin::ScriptBuf,
     pub script_type: ScriptType,
 }
 
+// validated version of the policy
 pub struct ValidatedPolicy {
     pub max_inputs: Option<u32>,
 }
@@ -107,6 +120,8 @@ impl ValidatedPolicy {
     }
 }
 
+// This is the definition of the error we will be raising if there is some malformity in the inputs,
+// with error code and message
 #[derive(Debug)]
 pub struct ValidationError {
     pub code: String,
@@ -122,6 +137,7 @@ impl ValidationError {
     }
 }
 
+// This is the enum for the standard script types(p2pkh, p2wpkh, p2sh-p2wpkh, p2tr)
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ScriptType {
     #[serde(rename = "p2pkh")]

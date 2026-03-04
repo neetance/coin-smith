@@ -1,5 +1,11 @@
+/*
+ This module contains the fee estimation logic, which is used across different coin selection strategies to estimate
+ the fee for a given selection of inputs and outputs.
+*/
+
 use crate::input_validation::types::{ScriptType, ValidatedPayment, ValidatedUtxo};
 
+// The main function for calculating the fess for a given set of inputs and outputs.
 pub fn estimate_fee(
     inputs: &[ValidatedUtxo],
     payments: &[ValidatedPayment],
@@ -8,12 +14,17 @@ pub fn estimate_fee(
     fee_rate_sat_vb: f64,
 ) -> (u64, usize) {
     let fee_rate_millisat_vb = (fee_rate_sat_vb * 1000.0).round() as u64;
-    let size_vb = estimate_size(inputs, payments, includes_change, change_script_type);
-    let total_fee_sats = (fee_rate_millisat_vb * (size_vb as u64) + 999) / 1000;
 
-    (total_fee_sats, size_vb)
+    // we estimate the size of the tx
+    let size_vb = estimate_size(inputs, payments, includes_change, change_script_type);
+    let total_fee_sats = (fee_rate_millisat_vb * (size_vb as u64) + 999) / 1000; // rounding up the fee to the nearest satoshi
+
+    (total_fee_sats, size_vb) // finally return the total fee in satoshis and the estimated size in vbytes
 }
 
+// Function for estimating the size of the transaction based on the number of inputs and outputs, and whether change is
+// included or not. We also take into account the script types of the inputs and outputs, since they affect the size of
+// the transaction.
 fn estimate_size(
     inputs: &[ValidatedUtxo],
     payments: &[ValidatedPayment],
